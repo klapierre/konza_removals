@@ -5,7 +5,6 @@
 ##  Date created: June 17, 2019
 ################################################################################
 
-
 library(tidyverse)
 
 setwd('C:\\Users\\la pierrek\\Dropbox (Smithsonian)\\konza projects\\Removal Plots_2011\\Masters 2011 data')
@@ -60,19 +59,20 @@ rich <- sppPA%>%
   summarise(richness=length(present))%>%
   ungroup()%>%
   #merge with trt
-  right_join(trt)
+  right_join(trt)%>%
+  filter(year!='NA')
 ###problems:
 #we don't have data from plot 187
 #lots of plots we do have data for don't have a trt designation (we drop a lot of plots, fungicide?)
 
 
 #simple bar graph
-ggplot(data=barGraphStats(data=rich, variable="richness", byFactorNames=c("remove","study")), aes(x=as.factor(remove), y=mean, fill=study)) +
-  geom_bar(stat='identity', position=position_dodge()) +
-  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=0.2, position=position_dodge(0.9)) +
+ggplot(data=barGraphStats(data=rich, variable="richness", byFactorNames=c("remove")), aes(x=as.factor(remove), y=mean)) +
+  geom_bar(stat='identity', fill='white', color='black') +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=0.2) +
   xlab('Removal Treatment') + ylab('Richness')
 
 #model
-summary(rich_model <- aov(richness~remove*study, data=rich))
+summary(rich_model <- aov(richness~remove + Error(ws), data=rich))
 
         
