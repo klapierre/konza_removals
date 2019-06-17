@@ -71,6 +71,7 @@ ggplot(data=barGraphStats(data=rich, variable="richness", byFactorNames=c("remov
   geom_bar(stat='identity', fill='white', color='black') +
   geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=0.2) +
   xlab('Removal Treatment') + ylab('Richness')
+#export 600x800
 
 #model
 summary(rich_model <- aov(richness~remove + Error(ws), data=rich))
