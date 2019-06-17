@@ -72,3 +72,7 @@ ggplot(data=barGraphStats(data=rich, variable="richness", byFactorNames=c("remov
   geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=0.2, position=position_dodge(0.9)) +
   xlab('Removal Treatment') + ylab('Richness')
 
+#model
+summary(rich_model <- aov(richness~remove*study, data=rich))
+
+        
