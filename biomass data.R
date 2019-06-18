@@ -5,6 +5,22 @@ setwd("C:\\Users\\megha\\Dropbox\\Konza Research\\Removal Plots_2011\\Masters 20
 biomass<-read.csv("MSBiomassData_2011.csv")
 trts<-read.csv("trt_codes.csv")
 
+###2000?
+biomass00<-read.csv("removal plots_cover_biomass_sigmaplot_2000.csv")%>%
+  select(ws, plot, remove, andro, sorg, other, forb, total)%>%
+  gather(type, biomass,andro:total)%>%
+  group_by(remove, type) %>% 
+  summarise(mean_bio=mean(biomass), sd_bio=sd(biomass))%>%
+  mutate(se_bio=sd_bio/sqrt(10))
+ggplot(data=biomass00, aes(x=type, y=mean_bio, fill=as.factor(remove)))+
+  geom_bar(stat="identity", position=position_dodge())+
+  geom_errorbar(aes(ymin=mean_bio-se_bio, ymax=mean_bio+se_bio), position = position_dodge(0.9), width=0.2)+
+  scale_fill_manual(name="Remove", values=c("green4", "darkred"))+
+  xlab("")+
+  ylab("Biomass (g)")
+
+
+#####2011 data
 biomass2<-biomass%>%
   select(-X)%>%
   mutate(biomass=Bag.Weight...Biomass-Bag.Weight)%>%
