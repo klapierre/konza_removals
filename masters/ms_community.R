@@ -5,6 +5,7 @@
 ##  Date created: June 17, 2019
 ################################################################################
 
+library(vegan)
 library(tidyverse)
 
 setwd('C:\\Users\\la pierrek\\Dropbox (Smithsonian)\\konza projects\\Removal Plots_2011\\Masters 2011 data')
@@ -76,4 +77,40 @@ ggplot(data=barGraphStats(data=rich, variable="richness", byFactorNames=c("remov
 #model
 summary(rich_model <- aov(richness~remove + Error(ws), data=rich))
 
-        
+
+
+#nmds
+sppMatrix <- sppPA%>%
+  right_join(trt)%>%
+  mutate(genus_species=paste(genus, species, sep='_'), remove_ws=paste(remove, ws, sep='::'))%>%
+  select(year, study, plot, genus_species, remove_ws, remove, ws, present)%>%
+  filter(year!='NA')%>%
+  spread(key=genus_species, value=present, fill=0)
+
+dissimilarity <- metaMDS(sppMatrix[,7:57], distance='bray')
+
+sites <- 1:nrow(sppMatrix)
+#Make a new data table called BC_Meta_Data and use data from Wide_Relative_Cover columns 1-3
+metadata <- sppMatrix[,1:6]
+#make a plot using the dataframe dissimilarity and the column "points".  Make "remove" a factor
+plot(dissimilarity$points,col=as.factor(metadata$remove_ws), cex=3, pch=20)
+#make elipses using the dissimilarity.  Group by "remove" and use standard deviation to draw eclipses and display by sites, add labels based on removal type.
+ordiellipse(dissimilarity, groups=as.factor(metadata$remove_ws), kind = "sd",display = "sites", label = T)
+#export at 800x800
+
+
+#permanova
+sppMatrix2 <- sppMatrix[,7:57]
+envMatrix <- sppMatrix[,1:6]
+print(permanova <- adonis2(formula = sppMatrix2~remove*ws, data=envMatrix, permutations = 999, method = "bray"))
+
+
+
+
+
+
+
+
+
+
+
