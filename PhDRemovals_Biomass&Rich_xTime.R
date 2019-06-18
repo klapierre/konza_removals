@@ -7,6 +7,13 @@ library(PerformanceAnalytics)
 ## Sally's desktop
 setwd("~/Dropbox/Removal Plots_2011/PhD_Removals")
 
+## Kim's laptop
+setwd("C:\\Users\\lapie\\Dropbox (Smithsonian)\\konza projects\\Removal Plots_2011\\PhD_Removals")
+
+
+#species list
+knzSpList <- read.csv('konza_spplist.csv')
+
 
 ###reading in cleaning 2000 data
 biomass00<-read.csv("removal study_stems_biomass_00_by growth.csv")
@@ -161,6 +168,38 @@ ggplot(data=All_11_MeanxDensity, aes(x=type, y=mean_bio, fill=as.factor(density)
   xlab("")+
   ylab("2011 Biomass (g)")
 
+
+
+
+###comparing species lists
+sppList00 <- biomass00%>%
+  select(plot, spnum, allbiom)%>%
+  filter(allbiom>0)%>%
+  rename(biomass00=allbiom)
+
+sppList01 <- biomass01%>%
+  select(plot, spnum, allbiom)%>%
+  filter(allbiom>0)%>%
+  rename(biomass01=allbiom)
+
+sppList11 <- biomass11%>%
+  mutate(biomass11=both-bag)%>%
+  filter(!is.na(biomass11))%>%
+  mutate(spnum=ifelse(genus=='unknown forb 1', 501, ifelse(genus=='coronilla', 502, spnum)))%>%
+  mutate(yr=10)%>%
+  select(plot, spnum, biomass11)
+
+sppListAll <- sppList01%>%
+  full_join(sppList11)%>%
+  left_join(trts)%>%
+  filter(plot<78)
+         
+sppListGained <- sppListAll%>%
+  filter(is.na(biomass01))%>%
+  full_join(sppList00)%>%
+  filter(plot<78)%>%
+  filter(!is.na(biomass11))%>% #90.2% of the species are new (not present in 2000)!
+  left_join(knzSpList)
 
 
 
