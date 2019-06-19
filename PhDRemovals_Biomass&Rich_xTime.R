@@ -1,7 +1,8 @@
-library(tidyverse)
+library(grid)
 library(vegan)
 library(codyn)
 library(PerformanceAnalytics)
+library(tidyverse)
 
 
 ## Sally's desktop
@@ -9,6 +10,41 @@ setwd("~/Dropbox/Removal Plots_2011/PhD_Removals")
 
 ## Kim's laptop
 setwd("C:\\Users\\lapie\\Dropbox (Smithsonian)\\konza projects\\Removal Plots_2011\\PhD_Removals")
+
+#kim's desktop
+setwd("C:\\Users\\la pierrek\\Dropbox (Smithsonian)\\konza projects\\Removal Plots_2011\\PhD_Removals")
+
+
+###bar graph summary statistics function
+#barGraphStats(data=, variable="", byFactorNames=c(""))
+
+barGraphStats <- function(data, variable, byFactorNames) {
+  count <- length(byFactorNames)
+  N <- aggregate(data[[variable]], data[byFactorNames], FUN=length)
+  names(N)[1:count] <- byFactorNames
+  names(N) <- sub("^x$", "N", names(N))
+  mean <- aggregate(data[[variable]], data[byFactorNames], FUN=mean)
+  names(mean)[1:count] <- byFactorNames
+  names(mean) <- sub("^x$", "mean", names(mean))
+  sd <- aggregate(data[[variable]], data[byFactorNames], FUN=sd)
+  names(sd)[1:count] <- byFactorNames
+  names(sd) <- sub("^x$", "sd", names(sd))
+  preSummaryStats <- merge(N, mean, by=byFactorNames)
+  finalSummaryStats <- merge(preSummaryStats, sd, by=byFactorNames)
+  finalSummaryStats$se <- finalSummaryStats$sd / sqrt(finalSummaryStats$N)
+  return(finalSummaryStats)
+}  
+
+theme_set(theme_bw())
+theme_update(axis.title.x=element_text(size=20, vjust=-0.35, margin=margin(t=15)), axis.text.x=element_text(size=16),
+             axis.title.y=element_text(size=20, angle=90, vjust=0.5, margin=margin(r=15)), axis.text.y=element_text(size=16),
+             plot.title = element_text(size=24, vjust=2),
+             panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+             legend.title=element_blank(), legend.text=element_text(size=20))
+
+
+###########################################################
+###########################################################
 
 
 #species list
@@ -172,16 +208,19 @@ ggplot(data=All_11_MeanxDensity, aes(x=type, y=mean_bio, fill=as.factor(density)
 
 
 ###comparing species lists
+#generate species list for 2000 using stem density data
 sppList00 <- biomass00%>%
-  select(plot, spnum, allbiom)%>%
-  filter(allbiom>0)%>%
-  rename(biomass00=allbiom)
+  select(plot, spnum, may, aug)%>%
+  filter(may>0)%>%
+  rename(stem_pretrt=may, stem_00=aug)
 
+#generate species list for 2001 using biomass data
 sppList01 <- biomass01%>%
   select(plot, spnum, allbiom)%>%
   filter(allbiom>0)%>%
   rename(biomass01=allbiom)
 
+#generate species list for 2011 using biomass data
 sppList11 <- biomass11%>%
   mutate(biomass11=both-bag)%>%
   filter(!is.na(biomass11))%>%
@@ -189,17 +228,115 @@ sppList11 <- biomass11%>%
   mutate(yr=10)%>%
   select(plot, spnum, biomass11)
 
+#merge species lists from 2001 and 2011 (post-treatment data)
 sppListAll <- sppList01%>%
   full_join(sppList11)%>%
   left_join(trts)%>%
+  #drop the true unmanipulated controls, because we don't have all the data for them
   filter(plot<78)
-         
+
+#merge species list from 2000 (pre-treatment data)
 sppListGained <- sppListAll%>%
-  filter(is.na(biomass01))%>%
   full_join(sppList00)%>%
+  #only keep species that were not present in 2000 post-treatment, but are present in 2011 (i.e., were gained since removal)
+  filter(is.na(stem_00)|stem_00==0)%>%
+  #drop the true unmanipulated controls, because we don't have all the data for them
   filter(plot<78)%>%
-  filter(!is.na(biomass11))%>% #90.2% of the species are new (not present in 2000)!
+  filter(!is.na(biomass11))%>% #70.3% of the species are new (not present in 2000)
   left_join(knzSpList)
+
+#get counts of number of species gained, and of those how many were new vs previously present
+sppCountNew <- sppListGained%>%
+  #only keep species that were not present in pre-treatnent (i.e., new to the plots)
+  filter(is.na(stem_pretrt))%>%
+  group_by(plot, density, rlevel, S)%>%
+  summarise(num_new=length(biomass11))%>%
+  ungroup()
+
+sppCountGained <- sppListGained%>%
+  group_by(plot, density, rlevel, S)%>%
+  summarise(num_gained=length(biomass11))%>%
+  ungroup()%>%
+  #join on the counts of new species
+  left_join(sppCountNew)%>%
+  #calculate number of species that were gained, but not new to the plots (i.e., those that were present pre-trt)
+  mutate(num_old=num_gained-num_new)
+
+#histogram of number of new species per plot
+hist(sppCountGained$num_new)
+
+###figures of species gained and whether they are new or old
+figNewSpp <- ggplot(data=barGraphStats(data=sppCountGained, variable="num_new", byFactorNames=c("density","rlevel")), aes(x=rlevel, y=mean, fill=density)) +
+  geom_bar(stat='identity', position=position_dodge()) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), position=position_dodge(0.9), width=0.2) +
+  ylab('Number New Species') + ylim(0,11) +
+  theme(legend.position='none') +
+  scale_fill_manual(name='Density\nReduction',
+                    breaks=c('A','B','C'),
+                    values=c('#999999', '#E69F00', '#56B4E9'),
+                    labels=c('50%', '25%', '0%')) +
+  scale_x_discrete(name='Richness Treatment',
+                   breaks=c('A','B','C', 'D'),
+                   labels=c('4-6 spp', '7-9 spp', '10-12 spp', '13-16 spp'))
+
+figOldSpp <- ggplot(data=barGraphStats(data=sppCountGained, variable="num_old", byFactorNames=c("density","rlevel")), aes(x=rlevel, y=mean, fill=density)) +
+  geom_bar(stat='identity', position=position_dodge()) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), position=position_dodge(0.9), width=0.2) +
+  ylab('Number Old Species') + ylim(0,11) +
+  theme(legend.title=element_text(size=24), legend.position=c(0.2,0.8)) +
+  scale_fill_manual(name='Density\nReduction',
+                    breaks=c('A','B','C'),
+                    values=c('#999999', '#E69F00', '#56B4E9'),
+                    labels=c('50%', '25%', '0%')) +
+  scale_x_discrete(name='Richness Treatment',
+                   breaks=c('A','B','C', 'D'),
+                   labels=c('4-6 spp', '7-9 spp', '10-12 spp', '13-16 spp'))
+
+figGainedSpp <- ggplot(data=barGraphStats(data=sppCountGained, variable="num_gained", byFactorNames=c("density","rlevel")), aes(x=rlevel, y=mean, fill=density)) +
+  geom_bar(stat='identity', position=position_dodge()) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), position=position_dodge(0.9), width=0.2) +
+  ylab('Number Gained Species') + ylim(0,11) +
+  theme(legend.position='none') +
+  scale_fill_manual(name='Density\nReduction',
+                    breaks=c('A','B','C'),
+                    values=c('#999999', '#E69F00', '#56B4E9'),
+                    labels=c('50%', '25%', '0%')) +
+  scale_x_discrete(name='Richness Treatment',
+                   breaks=c('A','B','C', 'D'),
+                   labels=c('4-6 spp', '7-9 spp', '10-12 spp', '13-16 spp'))
+
+pushViewport(viewport(layout=grid.layout(1,3)))
+print(figOldSpp, vp=viewport(layout.pos.row=1, layout.pos.col=1))
+print(figNewSpp, vp=viewport(layout.pos.row=1, layout.pos.col=2))
+print(figGainedSpp, vp=viewport(layout.pos.row=1, layout.pos.col=3))
+#export at 2400 x 600
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
